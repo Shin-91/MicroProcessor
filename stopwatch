@@ -1,0 +1,93 @@
+#include <avr/io.h>
+#define F_CPU 16000000UL
+#include <util/delay.h>
+#include <avr/interrupt.h>
+#define switch2 PINE&0x20 
+#define switch1 PINE&0x10 
+
+typedef unsigned char uchar;
+
+uchar digit[10] = { 0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7c, 0x07, 0x7f, 0x67 };
+volatile int count = 0;
+volatile int start = 0;
+volatile int stop = 0;
+uchar location[4] = {0x08, 0x04, 0x02, 0x01};
+
+SIGNAL(SIG_INTERRUPT4)
+{
+	if(start == 0)
+	{
+		start = 1;
+	}
+	else if(start == 1)
+	{
+		if(stop == 0)
+		{
+			stop = 1;
+		}
+		else
+		{
+			stop = 0;
+		}
+	}
+}
+
+SIGNAL(SIG_INTERRUPT5)
+{
+	count = 0;
+	start = 0;
+	stop = 0;
+}
+
+void show(uchar *nums)
+{
+	for(int i=0; i< 80;i++)
+	{
+		for(int j=0;j<4;j++)
+		{
+			PORTC = nums[j];
+			PORTG = location[j];
+			_delay_ms(2);
+		}
+	}
+	return;
+}
+
+
+
+int main()
+{
+	DDRA = 0xff;
+	DDRE = 0x00;
+	DDRC = 0xff;
+	DDRG = 0x0f;
+
+
+	uchar nums[4] = {0,0,0,0};
+	sei(); // global interrupt enable
+	EIMSK = 0x30; // 0011 0000
+	EICRB = 0x0a; // 0000 1010 
+
+
+	while(1)
+	{
+		if(start == 1)
+		{
+			count++;
+		}
+		
+		int cnt = count;
+		if(stop == 0)
+		{
+			for(int i=3;i>=0;i--)
+			{	
+				nums[i] = digit[cnt%10];
+				cnt /= 10;
+			}
+		}
+
+		show(nums);		
+	}
+	
+	return 0;
+}
